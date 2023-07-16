@@ -20,5 +20,4 @@ function gNBPos = getgNBPositions(numgNBs)
 
 
 
-
 end

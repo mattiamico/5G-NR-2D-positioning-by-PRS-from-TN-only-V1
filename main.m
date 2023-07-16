@@ -278,7 +278,8 @@ end
 estimatedUEPos = getEstimatedUEPosition(curveX,curveY);
 
 % Compute positioning estimation error
-EstimationErr = norm(UEPos-estimatedUEPos); % in meters
+EstimationErr = norm(UEPos-estimatedUEPos); % [m]
+
 disp(['Estimated UE Position       : [' num2str(estimatedUEPos(1)) ' ' num2str(estimatedUEPos(2)) ']' 13 ...
       'UE Position Estimation Error: ' num2str(EstimationErr) ' meters']);
 
