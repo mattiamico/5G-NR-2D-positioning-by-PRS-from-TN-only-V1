@@ -228,23 +228,29 @@ detectedgNBs = detectedgNBs(1:cellsToBeDetected);
 plotPRSCorr(carrier,corr,ofdmInfo.SampleRate);
 
 
+
+%% AAA) TODO: IMPLEMENTARE LS ( per TDOA ) e confrontare valori-stimati-LS vs valori-stimati-iperboli (questi)  
 %%%%%% UE Position Estimation Using OTDOA Technique %%%%%%
 
 % Calculate TDOA or RSTD values for all pairs of gNBs using the estimated TOA values 
 % by using the getRSTDValues function. Each RSTD value corresponding to a pair of gNBs 
 % can result from the UE being located at any position on a hyperbola with foci located at these gNBs.
 
-% Compute RSTD values for multilateration or trilateration
-rstdVals = getRSTDValues(delayEst,ofdmInfo.SampleRate);
+% Compute RSTD values for multilateration or trilateration (ie TDOAs)
+rstdVals = getRSTDValues(delayEst,ofdmInfo.SampleRate); % [s] 
 
 % Plot gNB and UE positions
 txCellIDs = [carrier(:).NCellID];
 cellIdx = 1;
 curveX = {};
 curveY = {};
+
 for jj = detectedgNBs(1) % Assuming first detected gNB as reference gNB
     for ii = detectedgNBs(2:end)
-        rstd = rstdVals(ii,jj)*speedOfLight; % Delay distance
+
+        rstd = rstdVals(ii,jj)*speedOfLight; % Delay distance [m]
+
+
         % Establish gNBs for which delay distance is applicable by
         % examining detected cell identities
         txi = find(txCellIDs == carrier(ii).NCellID);
@@ -267,10 +273,12 @@ for jj = detectedgNBs(1) % Assuming first detected gNB as reference gNB
         end
     end
 end
+
 numHyperbolaCurves = numel(curveX);
 if numHyperbolaCurves < 2
     error('nr5g:InsufficientCurves',"The number of hyperbola curves ("+numHyperbolaCurves+") is not sufficient for the estimation of UE position in 2-D. Try with more number of gNBs.");
 end
+
 % Estimate UE position from hyperbola curves using
 % |getEstimatedUEPosition|. This function computes the point of
 % intersections of all hyperbola curves and does the average of those
