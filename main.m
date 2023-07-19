@@ -200,9 +200,9 @@ title('real part of rx waveform')
 
 
 %%%%%% TOA Estimation %%%%%%
-cellsToBeDetected = min(3,numgNBs); % ok??
+cellsToBeDetected = min(3,numgNBs); % FIXME: ok?? (original matlab code issue ??)
 if cellsToBeDetected < 3 || cellsToBeDetected > numgNBs % meaning?? cellsToBeDetected > numgNBs condition cannot be valid ever!
-    error('nr5g:InvalidNumDetgNBs',['The number of detected gNBs (' num2str(cellsToBeDetected) ...
+    error('nr5g:InvalidNumDetgNBs',['The number of detected gNBs (' num2str(x) ...
         ') must be greater than or equal to 3 and less than or equal to the total number of gNBs (' num2str(numgNBs) ').']);
 end
 
@@ -235,25 +235,45 @@ plotPRSCorr(carrier,corr,ofdmInfo.SampleRate);
 % can result from the UE being located at any position on a hyperbola with foci located at these gNBs.
 
 % Compute RSTD values for multilateration or trilateration
-rstdVals = getRSTDValues(delayEst,ofdmInfo.SampleRate);
+rstdVals = getRSTDValues(delayEst,ofdmInfo.SampleRate); % [s]
 
 % Plot gNB and UE positions
 txCellIDs = [carrier(:).NCellID];
 cellIdx = 1;
 curveX = {};
 curveY = {};
-for jj = detectedgNBs(1) % Assuming first detected gNB as reference gNB
+
+% variables initialization for TDOA LS 
+x_tdoa = zeros(2, cellsToBeDetected); % nDim x nSensor array of sensor positions ( 2 x valid_BS_num )
+txj = find(txCellIDs == carrier(detectedgNBs(1)).NCellID);
+x_tdoa(:,1) = gNBPos{txj};
+
+rho = zeros(cellsToBeDetected-1,1);    % Range-Difference Measurements [m]
+
+for jj = detectedgNBs(1) % AA NB: Assuming FIRST detected gNB as reference gNB
     for ii = detectedgNBs(2:end)
-        rstd = rstdVals(ii,jj)*speedOfLight; % Delay distance
+
+        rstd = rstdVals(ii,jj)*speedOfLight; % Delay distance [m] ( Range-Difference Measurements [m] )
+       
+        rho(cellIdx) = rstd; % store for TDOA LS 
+
         % Establish gNBs for which delay distance is applicable by
         % examining detected cell identities
         txi = find(txCellIDs == carrier(ii).NCellID);
         txj = find(txCellIDs == carrier(jj).NCellID);
+
         if (~isempty(txi) && ~isempty(txj))
+            
             % Get x- and y- coordinates of hyperbola curve and store them
             [x,y] = getRSTDCurve(gNBPos{txi},gNBPos{txj},rstd);
+            
+             getRSTDCurve(gNBPos{txi},gNBPos{txj},rstd);
+            
+             x_tdoa(:,cellIdx+1) = [gNBPos{txi}];
+
+
             if isreal(x) && isreal(y)
-                curveX{1,cellIdx} = x; %#ok<*SAGROW> 
+                curveX{1,cellIdx} = x;
                 curveY{1,cellIdx} = y;
 
                 % Get the gNB numbers corresponding to the current hyperbola
@@ -280,17 +300,34 @@ estimatedUEPos = getEstimatedUEPosition(curveX,curveY);
 % Compute positioning estimation error
 EstimationErr = norm(UEPos-estimatedUEPos); % [m]
 
-disp(['Estimated UE Position       : [' num2str(estimatedUEPos(1)) ' ' num2str(estimatedUEPos(2)) ']' 13 ...
+disp(['Estimated UE Position (geometric intersection method)      : [' num2str(estimatedUEPos(1)) ' ' num2str(estimatedUEPos(2)) ']' 13 ...
       'UE Position Estimation Error: ' num2str(EstimationErr) ' meters']);
 
 % Plot UE, gNB positions, and hyperbola curves
 gNBsToPlot = unique([gNBNums{:}],'stable');
-
 plotPositionsAndHyperbolaCurves(gNBPos,UEPos,gNBsToPlot,curveX,curveY,gNBNums,estimatedUEPos);
 
 
 
+%% TDOA iterative Least Squares e confronto valori-stimati-LS vs valori-stimati-da-iperboli 
+valid_BS_num = numel(detectedgNBs);
 
+C = eye(valid_BS_num); % identity matrix
+x_init = [0 0]';
+epsilon = [];
+max_num_iterations = [];
+force_full_calc=false;
+plot_progress=false;
+ref_idx = 1; % Scalar index of reference sensor/gNB or nDim x nPair matrix of sensor pairings
+
+[LS_estimatedUEPos,LS_estimatedUEPos_full] = lsSoln(x_tdoa, rho, C, x_init, epsilon ,max_num_iterations,force_full_calc ,plot_progress,ref_idx);
+
+% Compute positioning estimation error
+LS_EstimationErr = norm(UEPos-LS_estimatedUEPos'); % [m]
+
+disp(newline)
+disp(['Estimated UE Position  (iterative LS method)      : [' num2str(LS_estimatedUEPos(1)) ' ' num2str(LS_estimatedUEPos(2)) ']' 13 ...
+      'UE Position Estimation Error: ' num2str(LS_EstimationErr) ' meters']);
 
 
 
