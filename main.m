@@ -1,7 +1,7 @@
 close all ; clear all
 %%%%%% Simulation Parameters %%%%%%
 
-nFrames = 1; % Number of 10 ms frames
+nFrames = 1; % Number of 10 ms 5G-NR frames ( 1 FRAME = 10 SUBFRAMES ) 
 fc = 3e9; % Carrier frequency [Hz] ( ie 3 [GHz] )
 
 %% Specify UE and gNB positions
@@ -37,7 +37,7 @@ validateCarriers(carrier);
 
 % Slot offsets of different PRS signals
 prsSlotOffsets = 0:2:(2*numgNBs - 1);
-prsIDs = randperm(4096,numgNBs) - 1;
+prsIDs = randperm(4096,numgNBs) - 1;    % AA TD - DIFFERENZA IN 5G-NR TRA prsIDs e cellIds ??
 
 % Configure PRS properties
 prs = nrPRSConfig;
@@ -47,7 +47,7 @@ prs.PRSResourceRepetition = 1;
 prs.PRSResourceTimeGap = 1;
 prs.MutingPattern1 = [];
 prs.MutingPattern2 = [];
-prs.NumRB = 52;
+prs.NumRB = 52;     % defines the PRS spectral extension: each RB in 5G-NR consists of 12 subcarrriers ==> PRS spectral extension = 12*52 = 624 subcarriers
 prs.RBOffset = 0;
 prs.CombSize = 12;
 prs.NumPRSSymbols = 12;
@@ -69,7 +69,7 @@ pdsch.DMRS.NumCDMGroupsWithoutData = 1;
 pdsch = repmat(pdsch,1,numgNBs);
 validateNumLayers(pdsch);
 
-%% Path Loss Configuration 
+%% Path Loss Configuration - ( TODO EDIT/CHANGE FOR BETTER SCENARIO MODELING ) 
 % Create a path loss configuration object for the 'UMa' (Urban Macrocell) scenario
 plCfg = nrPathLossConfig;
 plCfg.Scenario = 'Uma';
@@ -78,7 +78,8 @@ plCfg.StreetWidth = 5;  % [m] It is required for 'RMa' scenario
 plCfg.EnvironmentHeight = 2; % [m] It is required for 'UMa' and 'UMi' scenario
 
 % Specify the flag to configure the existence of the line of sight (LOS) path between each gNB and UE pair.
-los = [true true true true true]; % NB: 3 gNBs in los ==> 2 spatial unknowns retrievable ==> 2D positioning
+%los = [true false true true true]; % NB: 3 gNBs in los ==> 2 spatial unknowns retrievable ==> 2D positioning
+los = ones(1,numgNBs);
 
 if numel(los) ~= numgNBs
     error('nr5g:InvalidLOSLength',['Length of line of sight flag (' num2str(numel(los)) ...
@@ -89,7 +90,8 @@ end
 %%%%%% Generate PRS and PDSCH Resources %%%%%%
 
 %% Generate PRS and PDSCH resources corresponding to all of the gNBs 
-% To improve the hearability of PRS signals, transmit PDSCH resources in the slots in which the PRS is not transmitted by any of the gNBs. This example generates PRS and PDSCH resources with unit power (0 dB).
+% To improve the hearability of PRS signals, transmit PDSCH resources in the slots in which the PRS is not transmitted by any of the gNBs. 
+% This example generates PRS and PDSCH resources with unit power (0 dB).
 
 totSlots = nFrames*carrier(1).SlotsPerFrame;
 prsGrid = cell(1,numgNBs);
@@ -267,7 +269,7 @@ for jj = detectedgNBs(1) % AA NB: Assuming FIRST detected gNB as reference gNB
 
         rstd = rstdVals(ii,jj)*speedOfLight; % Delay distance [m] ( Range-Difference Measurements [m] )
        
-        rho(cellIdx) = rstd; % store for TDOA LS 
+        rho(cellIdx) = rstd; % store Range-Difference Measurements [m] for TDOA LS
 
         % Establish gNBs for which delay distance is applicable by
         % examining detected cell identities
@@ -335,10 +337,10 @@ valid_BS_num = numel(detectedgNBs);
 C = eye(valid_BS_num); % identity matrix
 x_init = [0 0]';
 epsilon = [];
-max_num_iterations = [];
-force_full_calc=false;
-plot_progress=false;
-ref_idx = 1; % Scalar index of reference sensor/gNB or nDim x nPair matrix of sensor pairings
+max_num_iterations = 50;
+force_full_calc=true;
+plot_progress=true;
+ref_idx = jj; % Scalar index of reference sensor/gNB or nDim x nPair matrix of sensor pairings
 
 [LS_estimatedUEPos,LS_estimatedUEPos_full] = lsSoln(x_tdoa, rho, C, x_init, epsilon ,max_num_iterations,force_full_calc ,plot_progress,ref_idx);
 
