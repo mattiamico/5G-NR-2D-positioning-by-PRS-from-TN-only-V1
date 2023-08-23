@@ -10,7 +10,7 @@ function plotPositionsAndHyperbolaCurves(gNBPos,UEPos,detgNBNums,curveX,curveY,g
 %   GNBNUMS    - Cell array of gNB numbers corresponding to all hyperbolas
 %   ESTPOS     - Estimated UE position
 
-    plotgNBAndUEPositions(gNBPos,UEPos,detgNBNums);
+    plotgNBAndUE_2DPositions(gNBPos,UEPos,detgNBNums, [], []);
     for curveIdx = 1:numel(curveX)
         curves(curveIdx) = plot(curveX{1,curveIdx},curveY{1,curveIdx}, ...
                '--','LineWidth',1,'Color','k');

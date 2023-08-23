@@ -12,11 +12,14 @@ UEPos = [500 -20]; % [m]
 % Configure number of gNBs and locate them at random positions in xy-coordinate plane
 numgNBs = 5;
 rng('default');  % Set RNG state for repeatability
-gNBPos = getgNBPositions(numgNBs); % [m]
 
+%gNBPos = getgNBPositions(numgNBs); % [m] (ORIGINAL MATLAB TUTORIAL) 
+r1 = 4000; % [m]
+r2 = 5000; % [m]
+gNBPos = getgNB2DPositions(numgNBs,r1,r2); % [m]
 
 % Plot UE and gNB positions
-plotgNBAndUEPositions(gNBPos,UEPos,1:numgNBs);
+plotgNBAndUE_2DPositions(gNBPos,UEPos,1:numgNBs,r1,r2);
 
 %%%%%% Configuration Objects %%%%%%
 
@@ -37,7 +40,7 @@ validateCarriers(carrier);
 
 % Slot offsets of different PRS signals
 prsSlotOffsets = 0:2:(2*numgNBs - 1);
-prsIDs = randperm(4096,numgNBs) - 1;    % AA TD - DIFFERENZA IN 5G-NR TRA prsIDs e cellIds ??
+prsIDs = randperm(4096,numgNBs) - 1;    % AA TODO - DIFFERENZA IN 5G-NR TRA prsIDs e cellIds ??
 
 % Configure PRS properties
 prs = nrPRSConfig;
@@ -342,7 +345,7 @@ force_full_calc=true;
 plot_progress=true;
 ref_idx = jj; % Scalar index of reference sensor/gNB or nDim x nPair matrix of sensor pairings
 
-[LS_estimatedUEPos,LS_estimatedUEPos_full] = lsSoln(x_tdoa, rho, C, x_init, epsilon ,max_num_iterations,force_full_calc ,plot_progress,ref_idx);
+[LS_estimatedUEPos,LS_estimatedUEPos_full] = tdoa.lsSoln(x_tdoa, rho, C, x_init, epsilon ,max_num_iterations,force_full_calc ,plot_progress,ref_idx);
 
 % Compute positioning estimation error
 LS_EstimationErr = norm(UEPos-LS_estimatedUEPos'); % [m]
