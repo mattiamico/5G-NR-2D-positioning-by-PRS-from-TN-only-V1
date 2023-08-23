@@ -4,10 +4,13 @@ close all ; clear all
 nFrames = 1; % Number of 10 ms 5G-NR frames ( 1 FRAME = 10 SUBFRAMES ) 
 fc = 3e9; % Carrier frequency [Hz] ( ie 3 [GHz] )
 
+validationMode = true;
+
 %% Specify UE and gNB positions
 
 % Configure UE position in xy-coordinate plane
-UEPos = [500 -20]; % [m]
+% UEPos = [500 -20]; % [m]
+UEPos = [0 0]; % [m]
 
 % Configure number of gNBs and locate them at random positions in xy-coordinate plane
 numgNBs = 5;
@@ -15,7 +18,7 @@ rng('default');  % Set RNG state for repeatability
 
 %gNBPos = getgNBPositions(numgNBs); % [m] (ORIGINAL MATLAB TUTORIAL) 
 r1 = 4000; % [m]
-r2 = 5000; % [m]
+r2 = 4000; % [m] % == r1 for validation
 gNBPos = getgNB2DPositions(numgNBs,r1,r2); % [m]
 
 % Plot UE and gNB positions
@@ -51,7 +54,7 @@ prs.PRSResourceTimeGap = 1;
 prs.MutingPattern1 = [];
 prs.MutingPattern2 = [];
 prs.NumRB = 52;     % defines the PRS spectral extension: each RB in 5G-NR consists of 12 subcarrriers ==> PRS spectral extension = 12*52 = 624 subcarriers
-prs.RBOffset = 0;
+prs.RBOffset = 0;   % ?? 
 prs.CombSize = 12;
 prs.NumPRSSymbols = 12;
 prs.SymbolStart = 0;
@@ -71,6 +74,7 @@ pdsch.SymbolAllocation = [0 14];
 pdsch.DMRS.NumCDMGroupsWithoutData = 1;
 pdsch = repmat(pdsch,1,numgNBs);
 validateNumLayers(pdsch);
+
 
 %% Path Loss Configuration - ( TODO EDIT/CHANGE FOR BETTER SCENARIO MODELING ) 
 % Create a path loss configuration object for the 'UMa' (Urban Macrocell) scenario
@@ -152,7 +156,7 @@ plotGrid(prsGrid,dataGrid);
 txWaveform = cell(1,numgNBs);
 for waveIdx = 1:numgNBs
     carrier(waveIdx).NSlot = 0;
-    txWaveform{waveIdx} = nrOFDMModulate(carrier(waveIdx),prsGrid{waveIdx} + dataGrid{waveIdx});
+    txWaveform{waveIdx} = nrOFDMModulate(carrier(waveIdx), prsGrid{waveIdx} + dataGrid{waveIdx});
 end
 
 plotWaveforms(txWaveform,carrier,"tx") % FIXME: improve plotting function
@@ -162,53 +166,64 @@ plotWaveforms(txWaveform,carrier,"tx") % FIXME: improve plotting function
 ofdmInfo = nrOFDMInfo(carrier(1));
 
 
+
 %%%%%% Add Signal Delays and Apply Path Loss %%%%%%
 
-% Calculate the time delays from each gNB to UE by using the known gNB and UE positions. 
-% This calculation uses the distance between the UE and gNB, radius, and the speed of propagation (speed of light). 
-% Calculate the sample delay by using the sampling rate, info.SampleRate, and store it in sampleDelay. 
-% This example only applies the integer sample delay by rounding the actual delays to their nearest integers. The example uses these variables to model the environment between gNBs and the UE. The information about these variables is not provided to the UE.
+% Calculate the (TRUE) time delays from each gNB to UE by using the known gNB and UE positions. 
+
+% This calculation uses the (TRUE) distance between the UE and gNB, radius, and the speed of propagation (speed of light). 
+
+% Calculate the sample delay by using the sampling rate, ofdmInfo.SampleRate, and store it in sampleDelayTrue. 
+% This example only applies the integer sample delay by rounding the actual delays to their nearest integers. 
+% The example uses these variables to model the environment between gNBs and the UE. The information about these variables is not provided/known to the UE.
+
 speedOfLight = physconst('LightSpeed'); % [m/s]
-sampleDelay = zeros(1,numgNBs);
-radius = cell(1, numgNBs);
+radius = cell(1, numgNBs); % [m]
+delay = cell(1, numgNBs); % [s]
+sampleDelayTrue = zeros(1,numgNBs); % [samples]
 
 for  gNBIdx = 1:numgNBs
-    radius{gNBIdx} = sqrt((gNBPos{gNBIdx}(1) - UEPos(1))^2 + (gNBPos{gNBIdx}(2) - UEPos(2))^2);
-    delay = radius{gNBIdx}/speedOfLight; % [s]
-    sampleDelay(gNBIdx) = round(delay*ofdmInfo.SampleRate);   % Delay in samples        ( ofdmInfo.SampleRate u.m: [samples/s] )
+
+    radius{gNBIdx} = sqrt((gNBPos{gNBIdx}(1) - UEPos(1))^2 + (gNBPos{gNBIdx}(2) - UEPos(2))^2); % [m]
+    delay{gNBIdx} = radius{gNBIdx}/speedOfLight; % [s]
+    sampleDelayTrue(gNBIdx) = round(delay{gNBIdx}*ofdmInfo.SampleRate);   % Delay in [samples]        ( ofdmInfo.SampleRate u.m: [samples/s] )
+
 end
 
-% Model the received signal at the UE by delaying each gNB transmission according to the values in sampleDelay 
+% Model the received signal at the UE by delaying each gNB transmission according to the values in sampleDelayTrue 
 % and by attenuating the received signal from each gNB. 
 % Ensure that all of the waveforms are of the same length by padding the received waveform from each gNB with relevant number of zeros.
-rxWaveform = zeros(length(txWaveform{1}) + max(sampleDelay),1);
+
+rxWaveform = zeros(length(txWaveform{1}) + max(sampleDelayTrue),1); 
 rx = cell(1,numgNBs);
 for gNBIdx = 1: numgNBs
+
     % Calculate path loss for each gNB and UE pair
     PLdB = nrPathLoss(plCfg,fc,los(gNBIdx),[gNBPos{gNBIdx}(:);0],[UEPos(:);0]);
-
     if PLdB < 0 || isnan(PLdB) || isinf(PLdB)
         error('nr5g:invalidPL',"Computed path loss (" + num2str(PLdB) + ...
             ") is invalid. Try changing the UE or gNB positions, or path loss configuration.");
     end
     PL = 10^(PLdB/10);
 
-    % Add delay, pad, and attenuate
-    rx{gNBIdx} = [zeros(sampleDelay(gNBIdx),1); txWaveform{gNBIdx}; ...
-                zeros(max(sampleDelay)-sampleDelay(gNBIdx),1)]/sqrt(PL);
+    % Add delay, pad, and attenuate the waveforms ( by sqrt(PL) ) 
+    rx{gNBIdx} = [zeros(sampleDelayTrue(gNBIdx),1); txWaveform{gNBIdx}; ...
+                zeros(max(sampleDelayTrue)-sampleDelayTrue(gNBIdx),1)]/sqrt(PL);
 
     % Sum waveforms from all gNBs
     rxWaveform = rxWaveform + rx{gNBIdx};
 end
 
+% FIXME: improve plotting function
 figure;
 plot((1:length(rxWaveform))',real(rxWaveform));
 title('real part of rx waveform')
 
 
-%%%%%% TOA Estimation %%%%%%
 
-%cellsToBeDetected = min(3,numgNBs); % FIXME: ok?? (original matlab code issue ??)
+%%%%%% TOA Estimation (from 5G-NR PRS signals) %%%%%%
+
+% cellsToBeDetected = min(3,numgNBs); % FIXME: ok?? (original matlab code issue ??)
 % if cellsToBeDetected < 3 || cellsToBeDetected > numgNBs % meaning?? cellsToBeDetected > numgNBs condition cannot be valid ever!
 %     error('nr5g:InvalidNumDetgNBs',['The number of detected gNBs (' num2str(x) ...
 %         ') must be greater than or equal to 3 and less than or equal to the total number of gNBs (' num2str(numgNBs) ').']);
@@ -222,27 +237,38 @@ else
 end
 
 corr = cell(1,numgNBs);
-delayEst = zeros(1, numgNBs); % TOAs [s]
+sampleDelayEst = zeros(1, numgNBs); % TOAs [samples]
+
 maxCorr = zeros(1,numgNBs);
+offsets = zeros(1,numgNBs);
+nrCheckIsValid = zeros(1,numgNBs);
+
 for gNBIdx = 1:numgNBs
-    [~,mag] = nrTimingEstimate(carrier(gNBIdx),rxWaveform,prsGrid{gNBIdx});
-    % Extract correlation data samples spanning about 1/14 ms for normal
-    % cyclic prefix and about 1/12 ms for extended cyclic prefix (this
+    
+    %[~,mag] = nrTimingEstimate(carrier(gNBIdx),rxWaveform,prsGrid{gNBIdx}); 
+    [offset,mag] = nrTimingEstimate(carrier(gNBIdx),rxWaveform,prsGrid{gNBIdx}); % offset u.m. = [samples]
+    offsets(gNBIdx) = offset;
+
+    % Extract correlation data samples spanning about 1/14 ms (??) for normal
+    % cyclic prefix and about 1/12 ms (??) for extended cyclic prefix (this
     % truncation is to ignore noisy side lobe peaks in correlation outcome)
     corr{gNBIdx} = mag(1:(ofdmInfo.Nfft*carrier(1).SubcarrierSpacing/15));
 
     % Delay estimate is at point of maximum correlation
     maxCorr(gNBIdx) = max(corr{gNBIdx});
-    delayEst(gNBIdx) = find(corr{gNBIdx} == maxCorr(gNBIdx),1)-1;   % [s]
+
+    sampleDelayEst(gNBIdx) = find(corr{gNBIdx} == maxCorr(gNBIdx),1)-1;   % [samples]
+    nrCheckIsValid(gNBIdx) = offset == sampleDelayEst(gNBIdx);
+
 end
 
 % Get detected gNB numbers based on correlation outcome
 [~,detectedgNBs] = sort(maxCorr,'descend');
 detectedgNBs = detectedgNBs(1:cellsToBeDetected);
-
-
+ 
 % Plot PRS correlation results
 plotPRSCorr(carrier,corr,ofdmInfo.SampleRate);
+
 
 
 %%%%%% UE Position Estimation Using OTDOA Technique %%%%%%
@@ -251,8 +277,13 @@ plotPRSCorr(carrier,corr,ofdmInfo.SampleRate);
 % by using the getRSTDValues function. Each RSTD value corresponding to a pair of gNBs 
 % can result from the UE being located at any position on a hyperbola with foci located at these gNBs.
 
+
 % Compute RSTD values for multilateration or trilateration (ie TDOAs)
-rstdVals = getRSTDValues(delayEst,ofdmInfo.SampleRate); % [s] 
+if ~validationMode
+   rstdVals = getRSTDValues(sampleDelayEst,ofdmInfo.SampleRate); % [s] 
+else
+   rstdVals = getRSTDValues(sampleDelayTrue,ofdmInfo.SampleRate); % [s] 
+end
 
 % Plot gNB and UE positions
 txCellIDs = [carrier(:).NCellID];
@@ -266,6 +297,7 @@ txj = find(txCellIDs == carrier(detectedgNBs(1)).NCellID);
 x_tdoa(:,1) = gNBPos{txj};
 
 rho = zeros(cellsToBeDetected-1,1);    % Range-Difference Measurements [m]
+
 
 for jj = detectedgNBs(1) % AA NB: Assuming FIRST detected gNB as reference gNB
     for ii = detectedgNBs(2:end)
@@ -310,17 +342,20 @@ if numHyperbolaCurves < 2
 end
 
 
+
+
 % Estimate UE position from hyperbola curves using
 % |getEstimatedUEPosition|. This function computes the point of
 % intersections of all hyperbola curves and does the average of those
 % points to get the UE position.
 estimatedUEPos = getEstimatedUEPosition(curveX,curveY);
 
-
-
-
 % Compute positioning estimation error
 EstimationErr = norm(UEPos-estimatedUEPos); % [m]
+
+disp(['True UE Position      : [' num2str(UEPos(1)) ' ' num2str(UEPos(2)) ']']);
+disp(newline)
+
 
 disp(['Estimated UE Position (geometric intersection method)      : [' num2str(estimatedUEPos(1)) ' ' num2str(estimatedUEPos(2)) ']' 13 ...
       'UE Position Estimation Error: ' num2str(EstimationErr) ' meters']);
@@ -331,21 +366,28 @@ plotPositionsAndHyperbolaCurves(gNBPos,UEPos,gNBsToPlot,curveX,curveY,gNBNums,es
 
 
 
-%% TDOA iterative Least Squares e confronto valori-stimati-LS vs valori-stimati-da-iperboli
+
+
+
+%% TDOA iterative Least Squares (UNCOSTRAINED)
 % NB: increasing valid_BS_num doesn't always improves the UE Position
 % Estimation Error ( ==> TD: APPLICARE WEIGTHS (e.g. vs distanze BS ) o treshold sui valori di
 % correlazione per decidere quali BS usare ??
 valid_BS_num = numel(detectedgNBs);
 
+% LS parameters
 C = eye(valid_BS_num); % identity matrix
-x_init = [0 0]';
-epsilon = [];
-max_num_iterations = 50;
+x_init_LS = [1 1]';
+%epsilon = [];
+epsilon = 1*10^-4; % [m]
+max_num_iterations = 200;
 force_full_calc=true;
 plot_progress=true;
 ref_idx = jj; % Scalar index of reference sensor/gNB or nDim x nPair matrix of sensor pairings
+% end LS parameters
 
-[LS_estimatedUEPos,LS_estimatedUEPos_full] = tdoa.lsSoln(x_tdoa, rho, C, x_init, epsilon ,max_num_iterations,force_full_calc ,plot_progress,ref_idx);
+
+[LS_estimatedUEPos,LS_estimatedUEPos_full] = tdoa.lsSoln(x_tdoa, rho, C, x_init_LS, epsilon ,max_num_iterations,force_full_calc ,plot_progress,ref_idx);
 
 % Compute positioning estimation error
 LS_EstimationErr = norm(UEPos-LS_estimatedUEPos'); % [m]
@@ -357,8 +399,21 @@ disp(['Estimated UE Position  (iterative LS method)      : [' num2str(LS_estimat
 
 
 
+%% TDOA Gradient Descent (UNCOSTRAINED)
+alpha = [];
+beta = [];
+x_init_GD = [1 1]';
+epsilon = 1*10^-4; % [m]
+max_num_iterations = 200;
 
+[GD_estimatedUEPos,GD_estimatedUEPos_full] = tdoa.gdSoln(x_tdoa, rho, C, x_init_GD, alpha, beta, epsilon ,max_num_iterations,force_full_calc ,plot_progress,ref_idx);
 
+% Compute positioning estimation error (UNCOSTRAINED ELEVATION)
+GD_EstimationErr = norm(UEPos-GD_estimatedUEPos'); % [m]
+
+disp(newline)
+disp(['Estimated UE Position  (iterative GD method)      : [' num2str(GD_estimatedUEPos(1)) ' ' num2str(GD_estimatedUEPos(2)) ']' 13 ...
+      'UE Position Estimation Error: ' num2str(GD_EstimationErr) ' meters']);
 
 
 
