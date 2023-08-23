@@ -6,6 +6,7 @@ fc = 3e9; % Carrier frequency [Hz] ( ie 3 [GHz] )
 
 validationMode = true;
 
+
 %% Specify UE and gNB positions
 
 % Configure UE position in xy-coordinate plane
@@ -156,15 +157,18 @@ plotGrid(prsGrid,dataGrid);
 txWaveform = cell(1,numgNBs);
 for waveIdx = 1:numgNBs
     carrier(waveIdx).NSlot = 0;
+
     txWaveform{waveIdx} = nrOFDMModulate(carrier(waveIdx), prsGrid{waveIdx} + dataGrid{waveIdx});
 end
 
-plotWaveforms(txWaveform,carrier,"tx") % FIXME: improve plotting function
 
 % Compute OFDM information using first carrier, assuming all carriers are
 % at same sampling rate
 ofdmInfo = nrOFDMInfo(carrier(1));
 
+
+% FIXME: improve plotting function
+plotWaveforms(txWaveform{1}, ofdmInfo.SampleRate, "Tx (OFDM) waveform ", carrier(1), 1, numgNBs)
 
 
 %%%%%% Add Signal Delays and Apply Path Loss %%%%%%
@@ -213,6 +217,7 @@ for gNBIdx = 1: numgNBs
     % Sum waveforms from all gNBs
     rxWaveform = rxWaveform + rx{gNBIdx};
 end
+
 
 % FIXME: improve plotting function
 figure;
