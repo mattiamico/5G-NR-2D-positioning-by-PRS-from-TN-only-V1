@@ -8,12 +8,15 @@ function estPos = getEstimatedUEPosition(xCell,yCell)
     % interpolate actual intersection location
 
     numCurves = numel(xCell);
+    
     % Make all vectors have equal length
     maxLen = max(cellfun(@length,xCell));
     for curveIdx = 1:numCurves
         xCell{curveIdx} = [xCell{curveIdx} inf(1,maxLen-length(xCell{curveIdx}))];
         yCell{curveIdx} = [yCell{curveIdx} inf(1,maxLen-length(yCell{curveIdx}))];
     end
+
+
     tempIdx = 1;
     for idx1 = 1:numCurves-1
         for idx2 = (idx1+1):numCurves
@@ -23,6 +26,8 @@ function estPos = getEstimatedUEPosition(xCell,yCell)
                                          firstCurve{idx3}(2,1),firstCurve{idx3}(2,2));
                 [x2a,y2a,x2b,y2b] = deal(secondCurve{idx3}(1,1),secondCurve{idx3}(1,2), ...
                                          secondCurve{idx3}(2,1),secondCurve{idx3}(2,2));
+
+                
                 a1 = (y1b-y1a)/(x1b-x1a);
                 b1 = y1a - a1*x1a;
 

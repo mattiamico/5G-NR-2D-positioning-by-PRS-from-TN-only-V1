@@ -1,5 +1,5 @@
 function plotgNBAndUE_2DPositions(gNBPos,UEPos,gNBNums,r1,r2)
-%   plotgNBAndUE_2DPositions(GNBPOS,UEPOS,GNBNUMS) plots gNB and UE positions.
+%   plotgNBAndUE_2DPositions(GNBPOS,UEPOS,GNBNUMS) plots gNB and UE 2D positions.
     
     numgNBs = numel(gNBNums);
     colors = getColors(numel(gNBPos));
