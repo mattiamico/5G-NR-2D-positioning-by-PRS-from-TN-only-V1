@@ -19,7 +19,7 @@ nFrames = 1; % Number of 10 ms 5G-NR frames ( 1 FRAME = 10 SUBFRAMES )
 fc = 3e9; % Carrier frequency [Hz] ( ie 3 [GHz] )
 
 
-validationMode = true ; % No path loss attenuations from propagation. No TOA derivation from correlation
+validationMode = false ; % No path loss attenuations from propagation. No TOA derivation from correlation
 
 
 %% Specify UE and gNB positions
@@ -29,7 +29,7 @@ validationMode = true ; % No path loss attenuations from propagation. No TOA der
 UEPos = [17000 17000]; % [m]
 
 % Configure number of gNBs and locate them at random positions in xy-coordinate plane
-numgNBs = 3;
+numgNBs = 4;
 rng('default');  % Set RNG state for repeatability
 
 %gNBPos = getgNBPositions(numgNBs); % [m] (ORIGINAL MATLAB TUTORIAL) 
@@ -307,7 +307,7 @@ plotPRSCorr(carrier,corr,ofdmInfo.SampleRate);
 % can result from the UE being located at any position on a hyperbola with foci located at these gNBs.
 
 
-% Compute RSTD values for multilateration or trilateration (ie TDOAs)
+% Compute RSTD values (ie TDOAs) for multilateration or trilateration 
 if ~validationMode % validationMode=true
    rstdVals = getRSTDValues(sampleDelayEst,ofdmInfo.SampleRate); % [s] 
 else % validationMode=true
@@ -318,15 +318,9 @@ end
 % Plot gNB and UE positions
 txCellIDs = [carrier(:).NCellID];
 cellIdx = 1;
+
 curveX = {};
 curveY = {};
-
-% variables initialization for TDOA LS 
-x_tdoa = zeros(2, cellsToBeDetected); % nDim x nSensor array of sensor positions ( 2 x valid_BS_num )
-txj = find(txCellIDs == carrier(detectedgNBs(1)).NCellID);
-x_tdoa(:,1) = gNBPos{txj};
-
-rho = zeros(cellsToBeDetected-1,1);    % Range-Difference Measurements [m]
 
 
 for jj = detectedgNBs(1) % AA NB: Assuming FIRST detected gNB as reference/serving gNB
@@ -334,22 +328,19 @@ for jj = detectedgNBs(1) % AA NB: Assuming FIRST detected gNB as reference/servi
 
         rstd = rstdVals(ii,jj)*speedOfLight; % Delay distance [m] ( Range-Difference Measurement [m] )
        
-        rho(cellIdx) = rstd; % store Range-Difference Measurements [m] for TDOA LS
 
         % Establish gNBs for which delay distance is applicable by
         % examining detected cell identities
         txi = find(txCellIDs == carrier(ii).NCellID);
         txj = find(txCellIDs == carrier(jj).NCellID);
 
+
         if (~isempty(txi) && ~isempty(txj))
             
-            % Get x- and y- coordinates of hyperbola curve and store them
-            [x,y] = getRSTDCurve(gNBPos{txi},gNBPos{txj},rstd);
-            
-             getRSTDCurve(gNBPos{txi},gNBPos{txj},rstd);
-            
-             x_tdoa(:,cellIdx+1) = [gNBPos{txi}];
 
+            % Get x- and y- cartesian coordinates of hyperbola curve and store them
+            %[x,y] = getRSTDCurve(gNBPos{txi},gNBPos{txj},rstd);
+            [x,y, delta, phi, r, hk] = getRSTDCurve_improved(gNBPos{txi},gNBPos{txj},rstd);
 
             if isreal(x) && isreal(y)
                 curveX{1,cellIdx} = x;
@@ -379,6 +370,7 @@ end
 % points to get the UE position.
 estimatedUEPos = getEstimatedUEPosition(curveX,curveY);
 
+
 % Compute positioning estimation error
 EstimationErr = norm(UEPos-estimatedUEPos); % [m]
 
@@ -392,6 +384,7 @@ disp(['Estimated UE Position (OTDOA GEOMETRIC INTERSECTION method)      : [' num
 
 % Plot UE, gNB positions, and hyperbola curves
 gNBsToPlot = unique([gNBNums{:}],'stable');
+
 plotPositionsAndHyperbolaCurves(gNBPos,UEPos,gNBsToPlot,curveX,curveY,gNBNums,estimatedUEPos);
 
 

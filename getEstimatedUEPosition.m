@@ -1,6 +1,10 @@
+
+
+
 function estPos = getEstimatedUEPosition(xCell,yCell)
 %   ESTPOS = getEstimatedUEPosition(XCELL,YCELL) returns the x- and y-
 %   coordinates of the UE position, given the hyperbolas XCELL and YCELL.
+
 
     % Steps involved in this computation:
     % 1. Find closest points between hyperbolic surfaces

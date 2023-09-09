@@ -1,24 +1,26 @@
+
+
+
 function [x,y] = getRSTDCurve(gNB1,gNB2,rstd)
 
 %   [X,Y] = getRSTDCurve(GNB1,GNB2,RSTD) returns the x- and y-coordinates
-%   of a hyperbola equation corresponding to an RSTD value, given the pair
+%   of a hyperbola equation corresponding to an RSTD value [m], given the pair
 %   of gNB positions gNB1 and gNB2.
 
     % Calculate vector between two gNBs
     delta = gNB1 - gNB2;
 
-
     % Express distance vector in polar form
     [phi,r] = cart2pol(delta(1),delta(2));  % r = 2c
 
 
-    rd = (r+rstd)/2;
+    rd = (r+rstd)/2;      % distance of segment between Vertex and Focus 
 
     % Compute the hyperbola parameters
 
-    a = (r/2)-rd;         % Vertex
+    a = (r/2)-rd;         % Vertex      a = c - rd 
 
-    c = r/2;              % Focus
+    c = r/2;              % Focus       c = a + rd
 
     b = sqrt(c^2-a^2);    % Co-vertex
 
