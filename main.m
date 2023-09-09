@@ -1,5 +1,6 @@
 close all ; clear all
 
+
 formatOut = 'yyyy-mm-dd_HH.MM';
 timestamp = datestr(now,formatOut);
 logFileName = strcat('logFile_',timestamp,'.txt');
@@ -9,35 +10,46 @@ diary(logFileName)
 outputDirectory = strcat('./',timestamp);
 mkdir(outputDirectory);   % create the directory
 
+savePlots = true
+
 
 %%%%%% Simulation Parameters %%%%%%
 
 nFrames = 1; % Number of 10 ms 5G-NR frames ( 1 FRAME = 10 SUBFRAMES ) 
 fc = 3e9; % Carrier frequency [Hz] ( ie 3 [GHz] )
 
-validationMode = true;
+
+validationMode = true ; % No path loss attenuations from propagation. No TOA derivation from correlation
 
 
 %% Specify UE and gNB positions
 
 % Configure UE position in xy-coordinate plane
-UEPos = [500 -20]; % [m]
-%UEPos = [0 0]; % [m]
+%UEPos = [500 -20]; % [m]
+UEPos = [17000 17000]; % [m]
 
 % Configure number of gNBs and locate them at random positions in xy-coordinate plane
-numgNBs = 5;
+numgNBs = 3;
 rng('default');  % Set RNG state for repeatability
 
 %gNBPos = getgNBPositions(numgNBs); % [m] (ORIGINAL MATLAB TUTORIAL) 
-r1 = 4000; % [m]
-r2 = 5000; % [m] % == r1 for validation
-gNBPos = getgNB2DPositions(numgNBs,r1,r2); % [m]
+r1 = 4*10^3; % [m]
+r2 = 8*10^3; % [m] % == r1 for validation
+angularlyEquispaced = false
+
+%central_position = [0,0];
+central_position = UEPos;
+
+gNBPos = getgNB2DPositions(numgNBs, r1, r2, central_position, angularlyEquispaced);  % [m]
+
 
 disp('gNBs positions [m]')
 celldisp(gNBPos)
 
+
 % Plot UE and gNB positions
-plotgNBAndUE_2DPositions(gNBPos,UEPos,1:numgNBs,r1,r2);
+%plotgNBAndUE_2DPositions(gNBPos,UEPos,1:numgNBs,r1,r2);
+plotgNBAndUE_2DPositions(gNBPos,UEPos,1:numgNBs,r1,r2,central_position, 'TRUE Horizontal positions', savePlots,outputDirectory);
 
 
 %%%%%% Configuration Objects %%%%%%
@@ -296,10 +308,10 @@ plotPRSCorr(carrier,corr,ofdmInfo.SampleRate);
 
 
 % Compute RSTD values for multilateration or trilateration (ie TDOAs)
-if ~validationMode
+if ~validationMode % validationMode=true
    rstdVals = getRSTDValues(sampleDelayEst,ofdmInfo.SampleRate); % [s] 
 else % validationMode=true
-   %% NB: zeros matrix of size=numgNBsxnumgNBs  
+   %% NB: zeros (TDOAs) matrix of size=numgNBsxnumgNBs ( in case of gNBs equidistant from UE ) 
    rstdVals = getRSTDValues(sampleDelayTrue,ofdmInfo.SampleRate); % [s] 
 end
 
@@ -374,64 +386,13 @@ disp(['True UE Position [m]     : [' num2str(UEPos(1)) ' ' num2str(UEPos(2)) ']'
 disp(newline)
 
 
-disp(['Estimated UE Position (geometric intersection method)      : [' num2str(estimatedUEPos(1)) ' ' num2str(estimatedUEPos(2)) ']' 13 ...
+disp(['Estimated UE Position (OTDOA GEOMETRIC INTERSECTION method)      : [' num2str(estimatedUEPos(1)) ' ' num2str(estimatedUEPos(2)) ']' 13 ...
       'UE Position Estimation Error: ' num2str(EstimationErr) ' meters']);
+
 
 % Plot UE, gNB positions, and hyperbola curves
 gNBsToPlot = unique([gNBNums{:}],'stable');
 plotPositionsAndHyperbolaCurves(gNBPos,UEPos,gNBsToPlot,curveX,curveY,gNBNums,estimatedUEPos);
-
-
-
-
-
-
-%% TDOA iterative Least Squares (UNCOSTRAINED)
-% NB: increasing valid_BS_num doesn't always improves the UE Position
-% Estimation Error ( ==> TD: APPLICARE WEIGTHS (e.g. vs distanze BS ) o treshold sui valori di
-% correlazione per decidere quali BS usare ??
-valid_BS_num = numel(detectedgNBs);
-
-% LS parameters
-C = eye(valid_BS_num); % identity matrix
-x_init_LS = [1 1]';
-%epsilon = [];
-epsilon = 1*10^-4; % [m]
-max_num_iterations = 200;
-force_full_calc=true;
-plot_progress=true;
-ref_idx = jj; % Scalar index of reference sensor/gNB or nDim x nPair matrix of sensor pairings
-% end LS parameters
-
-
-[LS_estimatedUEPos,LS_estimatedUEPos_full] = tdoa.lsSoln(x_tdoa, rho, C, x_init_LS, epsilon ,max_num_iterations,force_full_calc ,plot_progress,ref_idx);
-
-% Compute positioning estimation error
-LS_EstimationErr = norm(UEPos-LS_estimatedUEPos'); % [m]
-
-disp(newline)
-disp(['Estimated UE Position  (iterative LS method)      : [' num2str(LS_estimatedUEPos(1)) ' ' num2str(LS_estimatedUEPos(2)) ']' 13 ...
-      'UE Position Estimation Error: ' num2str(LS_EstimationErr) ' meters']);
-
-
-
-
-%% TDOA Gradient Descent (UNCOSTRAINED)
-alpha = [];
-beta = [];
-x_init_GD = [1 1]';
-epsilon = 1*10^-4; % [m]
-max_num_iterations = 200;
-
-[GD_estimatedUEPos,GD_estimatedUEPos_full] = tdoa.gdSoln(x_tdoa, rho, C, x_init_GD, alpha, beta, epsilon ,max_num_iterations,force_full_calc ,plot_progress,ref_idx);
-
-% Compute positioning estimation error (UNCOSTRAINED ELEVATION)
-GD_EstimationErr = norm(UEPos-GD_estimatedUEPos'); % [m]
-
-disp(newline)
-disp(['Estimated UE Position  (iterative GD method)      : [' num2str(GD_estimatedUEPos(1)) ' ' num2str(GD_estimatedUEPos(2)) ']' 13 ...
-      'UE Position Estimation Error: ' num2str(GD_EstimationErr) ' meters']);
-
 
 
 
