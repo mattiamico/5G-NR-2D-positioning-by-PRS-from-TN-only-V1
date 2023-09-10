@@ -19,14 +19,14 @@ nFrames = 1; % Number of 10 ms 5G-NR frames ( 1 FRAME = 10 SUBFRAMES )
 fc = 3e9; % Carrier frequency [Hz] ( ie 3 [GHz] )
 
 
-validationMode = false ; % No path loss attenuations from propagation. No TOA derivation from correlation
+validationMode = true ; % No path loss attenuations from propagation. No TOA derivation from correlation
 
 
 %% Specify UE and gNB positions
 
 % Configure UE position in xy-coordinate plane
-%UEPos = [500 -20]; % [m]
-UEPos = [17000 17000]; % [m]
+UEPos = [500 -20]; % [m]
+%UEPos = [17000 17000]; % [m]
 
 % Configure number of gNBs and locate them at random positions in xy-coordinate plane
 numgNBs = 4;
@@ -34,7 +34,8 @@ rng('default');  % Set RNG state for repeatability
 
 %gNBPos = getgNBPositions(numgNBs); % [m] (ORIGINAL MATLAB TUTORIAL) 
 r1 = 4*10^3; % [m]
-r2 = 8*10^3; % [m] % == r1 for validation
+r2 = 6*10^3; % [m] % == r1 for validation
+
 angularlyEquispaced = false
 
 %central_position = [0,0];
@@ -215,7 +216,7 @@ sampleDelayTrue = zeros(1,numgNBs);     % [samples]
 
 for  gNBIdx = 1:numgNBs
     radius{gNBIdx} = sqrt( (gNBPos{gNBIdx}(1) - UEPos(1))^2 + (gNBPos{gNBIdx}(2) - UEPos(2))^2); % [m]
-    delay{gNBIdx} = radius{gNBIdx}/speedOfLight; % [s]
+    delay{gNBIdx} = radius{gNBIdx}/speedOfLight;                          % [s]
     sampleDelayTrue(gNBIdx) = round(delay{gNBIdx}*ofdmInfo.SampleRate);   % Delay in [samples]        ( ofdmInfo.SampleRate u.m: [samples/s] )
 end
 

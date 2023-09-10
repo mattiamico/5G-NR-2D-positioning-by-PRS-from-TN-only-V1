@@ -1,6 +1,5 @@
 
 
-
 function plotPositionsAndHyperbolaCurves(gNBPos,UEPos,detgNBNums,curveX,curveY,gNBNums,estPos)
 %   plotPositionsAndHyperbolaCurves(GNBPOS,UEPOS,DETGNBNUMS,CURVEX,CURVEY,GNBNUMS,ESTPOS)
 %   plots gNB, UE positions, and hyperbola curves by considering these
@@ -13,7 +12,7 @@ function plotPositionsAndHyperbolaCurves(gNBPos,UEPos,detgNBNums,curveX,curveY,g
 %   GNBNUMS    - Cell array of gNB numbers corresponding to all hyperbolas
 %   ESTPOS     - Estimated UE position
 
-
+    % plotgNBAndUEPositions(gNBPos,UEPos,detgNBNums); % original
     plotgNBAndUE_2DPositions(gNBPos,UEPos,detgNBNums, [], [], [], "", false, []); % edited wrt original
 
     for curveIdx = 1:numel(curveX)
