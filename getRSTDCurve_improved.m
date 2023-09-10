@@ -48,7 +48,6 @@ function [x,y,delta,phi,r, hk] = getRSTDCurve_improved(gNB1,gNB2,rstd)
     % NB: left branch of the non-unit hyperbola (+- a*cosh(mu),b*sinh(mu))
     %x = a*cosh(mu) + hk(1);
     %y = b*sinh(mu) + hk(2);
-    
 
 
     %% DONE: DERIVARE VETTORI colonna f1 e f2 ( aka matrice di rotazione A di wikipedia parametric def )
@@ -59,12 +58,8 @@ function [x,y,delta,phi,r, hk] = getRSTDCurve_improved(gNB1,gNB2,rstd)
 
     hyp_ref = A*non_unit_hyperbola + hk';
 
-
-    %x_ref = [ cos(pi) -sin(phi) ]*non_unit_hyp +  hk(1);
     eps_x = max(abs(x - hyp_ref(1,:))) 
     eps_y = max(abs(y - hyp_ref(2,:))) 
-
-    disp("val ok?")
 
 end
  
