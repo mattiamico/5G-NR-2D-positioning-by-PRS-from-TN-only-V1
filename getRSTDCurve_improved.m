@@ -1,6 +1,5 @@
 
 
-
 function [x,y,delta,phi,r, hk] = getRSTDCurve_improved(gNB1,gNB2,rstd)
 
 %   [X,Y] = getRSTDCurve(GNB1,GNB2,RSTD) returns the x- and y-coordinates
@@ -54,10 +53,13 @@ function [x,y,delta,phi,r, hk] = getRSTDCurve_improved(gNB1,gNB2,rstd)
     %% DONE: COMPUTARE x e y da calcoli matriciali
     
     non_unit_hyperbola = [a*cosh(mu) ; b*sinh(mu)];
+
     A = [cos(phi) -sin(phi) ; sin(phi) cos(phi)];
 
     hyp_ref = A*non_unit_hyperbola + hk';
 
+
+    
     eps_x = max(abs(x - hyp_ref(1,:))) 
     eps_y = max(abs(y - hyp_ref(2,:))) 
 

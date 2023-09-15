@@ -26,7 +26,7 @@ validationMode = true ; % No path loss attenuations from propagation. No TOA der
 
 % Configure UE position in xy-coordinate plane
 UEPos = [500 -20]; % [m]
-%UEPos = [17000 17000]; % [m]
+%UEPos = [17000 500]; % [m]
 
 % Configure number of gNBs and locate them at random positions in xy-coordinate plane
 numgNBs = 4;
@@ -51,6 +51,8 @@ celldisp(gNBPos)
 % Plot UE and gNB positions
 %plotgNBAndUE_2DPositions(gNBPos,UEPos,1:numgNBs,r1,r2);
 plotgNBAndUE_2DPositions(gNBPos,UEPos,1:numgNBs,r1,r2,central_position, 'TRUE Horizontal positions', savePlots,outputDirectory);
+
+
 
 
 %%%%%% Configuration Objects %%%%%%
@@ -309,7 +311,7 @@ plotPRSCorr(carrier,corr,ofdmInfo.SampleRate);
 
 
 % Compute RSTD values (ie TDOAs) for multilateration or trilateration 
-if ~validationMode % validationMode=true
+if ~validationMode % validationMode=false
    rstdVals = getRSTDValues(sampleDelayEst,ofdmInfo.SampleRate); % [s] 
 else % validationMode=true
    %% NB: zeros (TDOAs) matrix of size=numgNBsxnumgNBs ( in case of gNBs equidistant from UE ) 
@@ -324,11 +326,19 @@ curveX = {};
 curveY = {};
 
 
+% variables initialization for TDOA NL-LS
+txj = find(txCellIDs == carrier(detectedgNBs(1)).NCellID);
+x_bs_ref = gNBPos{txj};
+x_bs = zeros(cellsToBeDetected-1,2); % array of sensor positions ( valid_BS_num-1 x 2)
+rdoas = zeros(cellsToBeDetected-1,1);    % RDOAs [m]5
+
+
 for jj = detectedgNBs(1) % AA NB: Assuming FIRST detected gNB as reference/serving gNB
     for ii = detectedgNBs(2:end)
 
         rstd = rstdVals(ii,jj)*speedOfLight; % Delay distance [m] ( Range-Difference Measurement [m] )
-       
+        
+        rdoas(cellIdx) = rstd; % [m]
 
         % Establish gNBs for which delay distance is applicable by
         % examining detected cell identities
@@ -338,10 +348,11 @@ for jj = detectedgNBs(1) % AA NB: Assuming FIRST detected gNB as reference/servi
 
         if (~isempty(txi) && ~isempty(txj))
             
-
             % Get x- and y- cartesian coordinates of hyperbola curve and store them
             %[x,y] = getRSTDCurve(gNBPos{txi},gNBPos{txj},rstd);
             [x,y, delta, phi, r, hk] = getRSTDCurve_improved(gNBPos{txi},gNBPos{txj},rstd);
+            
+            x_bs(cellIdx,:) = [gNBPos{txi}];
 
             if isreal(x) && isreal(y)
                 curveX{1,cellIdx} = x;
@@ -388,6 +399,34 @@ gNBsToPlot = unique([gNBNums{:}],'stable');
 
 plotPositionsAndHyperbolaCurves(gNBPos,UEPos,gNBsToPlot,curveX,curveY,gNBNums,estimatedUEPos);
 
+
+
+
+%rng default % for reproducibility
+%d = linspace(0,3);
+% y = exp(-1.3*d) + 0.05*randn(size(d));
+% The problem is: given the data (d, y), find the exponential decay rate that best fits the data.
+% Create an anonymous function that takes a value of the exponential decay rate r and returns a vector of differences from the model with that decay rate and the data.
+%fun = @(r) exp(-d*r) - y;
+
+extra_error_std = 1e-9; % [s]      ( 1e-10 [s] = 0.1 ns is  close to ideal case )
+rdoa_error = extra_error_std*speedOfLight; % [m]
+%rdoa_error = 0; % [m] % for validation/debug
+
+noisy_rdoas = rdoas + rdoa_error*randn(size(rdoas));
+
+fun = @(x_u) (sqrt( (x_bs(:,1) - x_u(1)).^2 + (x_bs(:,2) - x_u(2)).^2 ) - sqrt( (x_bs_ref(1) - x_u(1)).^2 + (x_bs_ref(2) - x_u(2)).^2 )) - noisy_rdoas; % [m]
+
+% Find the value of the optimal estimated UE position. 
+% Arbitrarily choose a position guess x0 = [0, 0] to be used as initialization 
+X_0 = [0, 0];
+X_UE_est = lsqnonlin(fun,X_0);
+
+
+NLLS_EstimationErr = norm(UEPos-X_UE_est); % [m]
+
+disp(['Estimated UE Position (Non Linear Least Squares method)      : [' num2str(X_UE_est(1)) ' ' num2str(X_UE_est(2)) ']' 13 ...
+      'UE Position Estimation Error: ' num2str(NLLS_EstimationErr) ' meters']);
 
 
 
