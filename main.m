@@ -15,7 +15,7 @@ savePlots = true
 
 %%%%%% Simulation Parameters %%%%%%
 
-nFrames = 1; % Number of 10 ms 5G-NR frames ( 1 FRAME = 10 SUBFRAMES ) 
+nFrames = 2; % Number of 10 ms 5G-NR frames ( 1 FRAME = 10 SUBFRAMES ) 
 fc = 3e9; % Carrier frequency [Hz] ( ie 3 [GHz] )
 
 
@@ -29,7 +29,7 @@ UEPos = [500 -20]; % [m]
 %UEPos = [17000 500]; % [m]
 
 % Configure number of gNBs and locate them at random positions in xy-coordinate plane
-numgNBs = 4;
+numgNBs = 5;
 rng('default');  % Set RNG state for repeatability
 
 %gNBPos = getgNBPositions(numgNBs); % [m] (ORIGINAL MATLAB TUTORIAL) 
